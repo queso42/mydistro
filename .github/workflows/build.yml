@@ -1,0 +1,39 @@
+name: Buildroot arm64
+on: [push, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential libncurses5-dev rsync bc libssl-dev qemu-user-static ccache
+
+      - name: Clone Buildroot
+        run: |
+          git clone --depth 1 --branch 2026.02.x https://github.com/buildroot/buildroot.git
+
+      - name: Configure Buildroot
+        run: |
+          mkdir -p buildroot/configs/
+          cp configs/arm64_defconfig buildroot/configs/
+          make -C buildroot arm64_defconfig
+
+      - name: Build
+        run: |
+          make -C buildroot -j$(nproc)
+
+      - name: Upload Select Build Images
+        uses: actions/upload-artifact@v4
+        with:
+          name: buildroot-bundle
+          path: |
+            buildroot/output/images/Image
+            buildroot/output/images/rootfs.ext4
+            buildroot/output/images/rootfs.tar.gz
+          if-no-files-found: error
+          retention-days: 7
