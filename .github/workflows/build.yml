@@ -67,5 +67,5 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: buildroot-vexpress-images
-        path: buildroot-2026.02.1/output/images/*
+        path: buildroot/output/images/*
         if-no-files-found: error # Blow up the build if the folder is empty so you know immediately
