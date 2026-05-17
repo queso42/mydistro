@@ -1,4 +1,4 @@
-name: Buildroot mac99
+name: Buildroot versatilepb armel
 
 on:
   push:
@@ -10,7 +10,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout Source Code
       uses: actions/checkout@v4
@@ -27,30 +27,29 @@ jobs:
       uses: actions/cache@v4
       with:
         path: ~/.buildroot-ccache
-        key: ${{ runner.os }}-buildroot-ccache-${{ github.sha }}
+        # Appended -armel to the key structure so GitHub isolates this cache from old PPC builds
+        key: ${{ runner.os }}-buildroot-ccache-armel-${{ github.sha }}
         restore-keys: |
-          ${{ runner.os }}-buildroot-ccache-
+          ${{ runner.os }}-buildroot-ccache-armel-
 
     - name: Download and Extract Buildroot
       run: |
-        # Pulling down the latest 2026.02 LTS release
         wget https://buildroot.org/downloads/buildroot-2026.02.tar.xz
         tar -xf buildroot-2026.02.tar.xz
         mv buildroot-2026.02 buildroot
 
-    - name: Inject Custom ppc_defconfig
+    - name: Inject Custom armel_defconfig
       run: |
-        # Copies your specific config right into the Buildroot config tree
-        cp configs/ppc_defconfig buildroot/configs/
+        # Looks for your new armel configuration profile
+        cp configs/armel_defconfig buildroot/configs/
 
     - name: Configure Buildroot
       run: |
         cd buildroot
-        # Apply your custom configuration
-        make ppc_defconfig
-        
-        # Ensure Buildroot points its internal cache to our GitHub Actions runner home directory
-        # (This guarantees the cache persists across separate workflow pushes!)
+        # Apply your custom ARM configuration profile
+        make armel_defconfig
+
+        # Explicitly maps your dynamic runner home path into the .config
         sed -i 's|^BR2_CCACHE_DIR=.*|BR2_CCACHE_DIR="$(HOME)/.buildroot-ccache"|' .config
         
         make olddefconfig
@@ -58,7 +57,6 @@ jobs:
     - name: Compile the Distro
       run: |
         cd buildroot
-        # Start compilation. Buildroot auto-detects host CPU cores for parallel building.
         make
 
     - name: Verify Output Files
@@ -68,8 +66,7 @@ jobs:
     - name: Upload Linux Kernel & RootFS Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: powerpc-musl-distro
+        name: armel-le-distro
         path: |
-          buildroot/output/images/vmlinux
+          buildroot/output/images/zImage
           buildroot/output/images/rootfs.ext2
-
