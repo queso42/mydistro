@@ -63,11 +63,9 @@ jobs:
       run: |
         ls -lh buildroot/output/images/
 
-    - name: Upload Linux Kernel & RootFS Artifacts
+    - name: Upload Buildroot Images
       uses: actions/upload-artifact@v4
       with:
-        name: armel-le-distro
-        path: |
-          buildroot/output/images/zImage
-          buildroot/output/images/versatile-pb.dtb
-          buildroot/output/images/rootfs.ext2
+        name: buildroot-vexpress-images
+        path: buildroot-2026.02.1/output/images/*
+        if-no-files-found: error # Blow up the build if the folder is empty so you know immediately
