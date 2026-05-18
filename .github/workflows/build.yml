@@ -40,7 +40,7 @@ jobs:
     - name: Inject Custom Configuration Profile
       run: |
         # Injects your customized configuration into the build tree root file position
-        cp config buildroot/.config
+        cp configs/ppc64le_defconfig buildroot/.config
 
     - name: Configure Buildroot
       run: |
