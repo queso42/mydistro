@@ -1,4 +1,4 @@
-name: Buildroot versatilepb armel
+name: Buildroot pSeries POWER9 ppc64le
 
 on:
   push:
@@ -21,16 +21,15 @@ jobs:
         sudo apt-get install -y \
           build-essential libncurses5-dev rsync cpio python3 \
           unzip bc wget findutils file libssl-dev git \
-          graphviz subversion configure-debian
+          graphviz subversion
 
     - name: Set up Persistent ccache Directory
       uses: actions/cache@v4
       with:
         path: ~/.buildroot-ccache
-        # Appended -armel to the key structure so GitHub isolates this cache from old PPC builds
-        key: ${{ runner.os }}-buildroot-ccache-armel-${{ github.sha }}
+        key: ${{ runner.os }}-buildroot-ccache-ppc64le-${{ github.sha }}
         restore-keys: |
-          ${{ runner.os }}-buildroot-ccache-armel-
+          ${{ runner.os }}-buildroot-ccache-ppc64le-
 
     - name: Download and Extract Buildroot
       run: |
@@ -38,20 +37,16 @@ jobs:
         tar -xf buildroot-2026.02.tar.xz
         mv buildroot-2026.02 buildroot
 
-    - name: Inject Custom armel_defconfig
+    - name: Inject Custom Configuration Profile
       run: |
-        # Looks for your new armel configuration profile
-        cp configs/armel_defconfig buildroot/configs/
+        # Injects your customized configuration into the build tree root file position
+        cp config buildroot/.config
 
     - name: Configure Buildroot
       run: |
         cd buildroot
-        # Apply your custom ARM configuration profile
-        make armel_defconfig
-
-        # Explicitly maps your dynamic runner home path into the .config
+        # Explicitly map your dynamic runner home path into the .config
         sed -i 's|^BR2_CCACHE_DIR=.*|BR2_CCACHE_DIR="$(HOME)/.buildroot-ccache"|' .config
-        
         make olddefconfig
 
     - name: Compile the Distro
@@ -66,6 +61,6 @@ jobs:
     - name: Upload Buildroot Images
       uses: actions/upload-artifact@v4
       with:
-        name: buildroot-vexpress-images
+        name: buildroot-pseries-power9-images
         path: buildroot/output/images/*
-        if-no-files-found: error # Blow up the build if the folder is empty so you know immediately
+        if-no-files-found: error
