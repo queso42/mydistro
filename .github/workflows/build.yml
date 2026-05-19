@@ -1,4 +1,4 @@
-name: Buildroot m68k Macintosh Q800
+name: Buildroot PowerPC Mac99 G4 Distro
 
 on:
   push:
@@ -27,10 +27,10 @@ jobs:
       uses: actions/cache@v4
       with:
         path: ~/.buildroot-ccache
-        # Updated key to separate your m68k compiler cache from your old ppc64le cache
-        key: ${{ runner.os }}-buildroot-ccache-m68k-${{ github.sha }}
+        # Isolated cache space specifically for the PowerPC toolchain layers
+        key: ${{ runner.os }}-buildroot-ccache-ppc99-${{ github.sha }}
         restore-keys: |
-          ${{ runner.os }}-buildroot-ccache-m68k-
+          ${{ runner.os }}-buildroot-ccache-ppc99-
 
     - name: Download and Extract Buildroot
       run: |
@@ -40,9 +40,9 @@ jobs:
 
     - name: Inject Custom Configuration Profile
       run: |
-        # Injects your customized configuration file. 
-        # Make sure your new configuration file is named 'm68k_q800_defconfig' inside your repo's configs/ folder!
-        cp configs/m68k_q800_defconfig buildroot/.config
+        # Injects your high-performance glibc/SysVinit config layer.
+        # Make sure your uploaded file is saved in your repo as 'configs/mac99_g4_defconfig'!
+        cp configs/mac99_g4_defconfig buildroot/.config
 
     - name: Configure Buildroot
       run: |
@@ -62,17 +62,16 @@ jobs:
         echo "--- Host / SDK Tools Mirror ---"
         ls -lh buildroot/output/host/
 
-    - name: Upload Core OS Kernel and Ext4 Images
+    - name: Upload Core OS Kernel (vmlinux) and Ext4 Images
       uses: actions/upload-artifact@v4
       with:
-        name: buildroot-m68k-q800-images
+        name: buildroot-ppc-mac99-images
         path: buildroot/output/images/*
         if-no-files-found: error
 
-    - name: Upload Cross-Compiler Host SDK (Solution 1 Environment)
+    - name: Upload Cross-Compiler Host SDK (PPC G4 Toolchain)
       uses: actions/upload-artifact@v4
       with:
-        name: m68k-buildroot-sdk-host-tools
-        # This grabs the toolchain, libraries, and your 'environment-setup' script
+        name: ppc-buildroot-sdk-host-tools
         path: buildroot/output/host/*
         if-no-files-found: error
