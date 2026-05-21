@@ -1,4 +1,4 @@
-name: Buildroot PowerPC Mac99 G4 Distro
+name: Make Distro using buildroot
 
 on:
   push:
@@ -27,10 +27,9 @@ jobs:
       uses: actions/cache@v4
       with:
         path: ~/.buildroot-ccache
-        # Isolated cache space specifically for the PowerPC toolchain layers
-        key: ${{ runner.os }}-buildroot-ccache-ppc99-${{ github.sha }}
+        key: ${{ runner.os }}-buildroot-ccache-vexpress-${{ github.sha }}
         restore-keys: |
-          ${{ runner.os }}-buildroot-ccache-ppc99-
+          ${{ runner.os }}-buildroot-ccache-vexpress-
 
     - name: Download and Extract Buildroot
       run: |
@@ -40,16 +39,7 @@ jobs:
 
     - name: Inject Custom Configuration Profile
       run: |
-        # Injects your high-performance glibc/SysVinit config layer.
-        # Make sure your uploaded file is saved in your repo as 'configs/mac99_g4_defconfig'!
-        cp configs/mac99_g4_defconfig buildroot/.config
-
-    - name: Configure Buildroot
-      run: |
-        cd buildroot
-        # Explicitly map your dynamic runner home path into the .config
-        sed -i 's|^BR2_CCACHE_DIR=.*|BR2_CCACHE_DIR="$(HOME)/.buildroot-ccache"|' .config
-        make olddefconfig
+        cp configs/armel_defconfig buildroot/.config
 
     - name: Compile the Distro
       run: |
@@ -62,14 +52,14 @@ jobs:
         echo "--- Host / SDK Tools Mirror ---"
         ls -lh buildroot/output/host/
 
-    - name: Upload Core OS Kernel (vmlinux) and Ext4 Images
+    - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: buildroot-ppc-mac99-images
+        name: buildroot-arm-vexpress-images
         path: buildroot/output/images/*
         if-no-files-found: error
 
-    - name: Upload Cross-Compiler Host SDK (PPC G4 Toolchain)
+    - name: Upload cross-compiler
       uses: actions/upload-artifact@v4
       with:
         name: ppc-buildroot-sdk-host-tools
