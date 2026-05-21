@@ -37,14 +37,13 @@ jobs:
         tar -xf buildroot-2026.02.tar.xz
         mv buildroot-2026.02 buildroot
 
-    - name: Inject Custom Configuration Profile
+    - name: Put my custom defconfig
       run: |
         cp configs/armel_defconfig buildroot/.config
+        make -C buildroot/ olddefconfig
 
     - name: Compile the Distro
-      run: |
-        cd buildroot
-        make
+      run: make -C buildroot/
 
     - name: Verify Output Files
       run: |
