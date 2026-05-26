@@ -1,6 +1,6 @@
 name: Build Custom Distro (Buildroot)
 
-on:
+"on":
   push:
     branches: ["main"]
   pull_request:
@@ -14,7 +14,7 @@ env:
 
 jobs:
   build:
-    name: Buildroot — arm-vexpress
+    name: Buildroot arm-vexpress
     runs-on: ubuntu-24.04-arm
 
     steps:
@@ -29,71 +29,20 @@ jobs:
             rsync cpio bc wget unzip findutils file \
             python3 git graphviz subversion
 
-      - name: Restore Buildroot source cache
-        id: cache-buildroot-src
-        uses: actions/cache@v4
-        with:
-          path: buildroot-${{ env.BUILDROOT_VERSION }}.tar.xz
-          key: buildroot-tarball-${{ env.BUILDROOT_VERSION }}
-
-      - name: Download Buildroot
-        if: steps.cache-buildroot-src.outputs.cache-hit != 'true'
-        run: |
-          wget -q --show-progress \
-            https://buildroot.org/downloads/buildroot-${{ env.BUILDROOT_VERSION }}.tar.xz
-
-      - name: Extract Buildroot
-        run: |
-          tar -xf buildroot-${{ env.BUILDROOT_VERSION }}.tar.xz
-          mv buildroot-${{ env.BUILDROOT_VERSION }} ${{ env.BUILDROOT_DIR }}
-
-      - name: Restore ccache
-        uses: actions/cache@v4
-        with:
-          path: ~/.buildroot-ccache
-          key: buildroot-ccache-${{ env.TARGET_BOARD }}-${{ github.sha }}
-          restore-keys: |
-            buildroot-ccache-${{ env.TARGET_BOARD }}-
-
-      - name: Restore Buildroot DL cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.buildroot-dl
-          key: buildroot-dl-${{ env.BUILDROOT_VERSION }}-${{ hashFiles('configs/buildroot_defconfig') }}
-          restore-keys: |
-            buildroot-dl-${{ env.BUILDROOT_VERSION }}-
-
       - name: Apply board config and defconfig
         run: |
+          mkdir -p ${{ env.BUILDROOT_DIR }}/board/${{ env.TARGET_BOARD }}
           cp configs/linux.config \
             ${{ env.BUILDROOT_DIR }}/board/${{ env.TARGET_BOARD }}/linux.config
           cp configs/buildroot_defconfig ${{ env.BUILDROOT_DIR }}/.config
           make -C ${{ env.BUILDROOT_DIR }} olddefconfig
 
       - name: Build distro
-        run: |
-          make -C ${{ env.BUILDROOT_DIR }} \
-            BR2_CCACHE_DIR=~/.buildroot-ccache \
-            BR2_DL_DIR=~/.buildroot-dl \
-            -j$(nproc)
-
-      - name: Verify output
-        run: |
-          echo "=== Images ==="
-          ls -lh ${{ env.BUILDROOT_DIR }}/output/images/
-          echo "=== Host / SDK tools ==="
-          ls -lh ${{ env.BUILDROOT_DIR }}/output/host/
+        run: make -C ${{ env.BUILDROOT_DIR }} -j$(nproc)
 
       - name: Upload images
         uses: actions/upload-artifact@v4
         with:
           name: buildroot-images
           path: ${{ env.BUILDROOT_DIR }}/output/images/*
-          if-no-files-found: error
-
-      - name: Upload SDK / cross-compiler
-        uses: actions/upload-artifact@v4
-        with:
-          name: buildroot-sdk-host-tools
-          path: ${{ env.BUILDROOT_DIR }}/output/host/*
           if-no-files-found: error
