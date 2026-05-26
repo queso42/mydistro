@@ -33,13 +33,14 @@ jobs:
 
     - name: Download and Extract Buildroot
       run: |
-        wget https://buildroot.org/downloads/buildroot-2026.02.tar.xz
-        tar -xf buildroot-2026.02.tar.xz
-        mv buildroot-2026.02 buildroot
+        wget https://buildroot.org/downloads/buildroot-2026.05-rc2.tar.xz
+        tar -xf buildroot-2026.05-rc2.tar.xz
+        mv buildroot-2026.05-rc2 buildroot
 
-    - name: Put my custom defconfig
+    - name: Put my stuff
       run: |
-        cp configs/armel_defconfig buildroot/.config
+        cp configs/linux.config buildroot/board/qemu/arm_vexpress
+        cp configs/buildroot_defconfig buildroot/.config
         make -C buildroot/ olddefconfig
 
     - name: Compile the Distro
@@ -54,13 +55,13 @@ jobs:
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: buildroot-arm-vexpress-images
+        name: buildroot-images
         path: buildroot/output/images/*
         if-no-files-found: error
 
     - name: Upload cross-compiler
       uses: actions/upload-artifact@v4
       with:
-        name: ppc-buildroot-sdk-host-tools
+        name: buildroot-sdk-host-tools
         path: buildroot/output/host/*
         if-no-files-found: error
