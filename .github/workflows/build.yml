@@ -35,7 +35,7 @@ jobs:
           cp configs/linux.config \
             ${{ env.BUILDROOT_DIR }}/board/${{ env.TARGET_BOARD }}/linux.config
           cp configs/buildroot_defconfig ${{ env.BUILDROOT_DIR }}/.config
-          make -C ${{ env.BUILDROOT_DIR }} olddefconfig
+          make -C ${{ env.BUILDROOT_DIR }} syncconfig
 
       - name: Build distro
         run: make -C ${{ env.BUILDROOT_DIR }} -j$(nproc)
