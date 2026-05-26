@@ -39,7 +39,6 @@ jobs:
 
     - name: Put my stuff
       run: |
-        mkdir -p buildroot/board/qemu/arm-vexpress
         cp configs/linux.config buildroot/board/qemu/arm-vexpress/linux.config
         cp configs/buildroot_defconfig buildroot/.config
         make -C buildroot/ olddefconfig
