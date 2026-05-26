@@ -1,4 +1,4 @@
-name: Make Distro using buildroot
+name: Make a custom distro using buildroot
 
 on:
   push:
