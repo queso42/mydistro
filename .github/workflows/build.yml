@@ -7,11 +7,6 @@ name: Build Custom Distro (Buildroot)
     branches: ["main"]
   workflow_dispatch:
 
-env:
-  BUILDROOT_VERSION: "2026.05-rc2"
-  BUILDROOT_DIR: "buildroot"
-  TARGET_BOARD: "qemu/arm-vexpress"
-
 jobs:
   build:
     name: Buildroot arm-vexpress
@@ -29,20 +24,25 @@ jobs:
             rsync cpio bc wget unzip findutils file \
             python3 git graphviz subversion
 
+      - name: Fetch Buildroot
+        run: |
+          wget https://buildroot.org/downloads/buildroot-2026.05-rc2.tar.gz
+          tar -xf buildroot-2026.05-rc2.tar.gz
+          mv buildroot-2026.05-rc2 buildroot
+
       - name: Apply board config and defconfig
         run: |
-          mkdir -p ${{ env.BUILDROOT_DIR }}/board/${{ env.TARGET_BOARD }}
           cp configs/linux.config \
-            ${{ env.BUILDROOT_DIR }}/board/${{ env.TARGET_BOARD }}/linux.config
-          cp configs/buildroot_defconfig ${{ env.BUILDROOT_DIR }}/.config
-          make -C ${{ env.BUILDROOT_DIR }} syncconfig
+            buildroot/board/qemu/arm-vexpress/linux.config
+          cp configs/buildroot_defconfig buildroot/.config
+          make -C buildroot/ olddefconfig
 
       - name: Build distro
-        run: make -C ${{ env.BUILDROOT_DIR }} -j$(nproc)
+        run: make -C buildroot/ -j$(nproc)
 
       - name: Upload images
         uses: actions/upload-artifact@v4
         with:
           name: buildroot-images
-          path: ${{ env.BUILDROOT_DIR }}/output/images/*
+          path: buildroot/output/images/*
           if-no-files-found: error
