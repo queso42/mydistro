@@ -1,67 +1,99 @@
-name: Make a custom distro using buildroot
+name: Build Custom Distro (Buildroot)
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
   workflow_dispatch:
+
+env:
+  BUILDROOT_VERSION: "2026.05-rc2"
+  BUILDROOT_DIR: "buildroot"
+  TARGET_BOARD: "qemu/arm-vexpress"
 
 jobs:
   build:
+    name: Buildroot — arm-vexpress
     runs-on: ubuntu-24.04-arm
 
     steps:
-    - name: Checkout Source Code
-      uses: actions/checkout@v4
+      - name: Checkout source code
+        uses: actions/checkout@v4
 
-    - name: Install Host Build Dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          build-essential libncurses5-dev rsync cpio python3 \
-          unzip bc wget findutils file libssl-dev git \
-          graphviz subversion
+      - name: Install host build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            build-essential libncurses5-dev libssl-dev \
+            rsync cpio bc wget unzip findutils file \
+            python3 git graphviz subversion
 
-    - name: Set up Persistent ccache Directory
-      uses: actions/cache@v4
-      with:
-        path: ~/.buildroot-ccache
-        key: ${{ runner.os }}-buildroot-ccache-vexpress-${{ github.sha }}
-        restore-keys: |
-          ${{ runner.os }}-buildroot-ccache-vexpress-
+      - name: Restore Buildroot source cache
+        id: cache-buildroot-src
+        uses: actions/cache@v4
+        with:
+          path: buildroot-${{ env.BUILDROOT_VERSION }}.tar.xz
+          key: buildroot-tarball-${{ env.BUILDROOT_VERSION }}
 
-    - name: Download and Extract Buildroot
-      run: |
-        wget https://buildroot.org/downloads/buildroot-2026.05-rc2.tar.xz
-        tar -xf buildroot-2026.05-rc2.tar.xz
-        mv buildroot-2026.05-rc2 buildroot
+      - name: Download Buildroot
+        if: steps.cache-buildroot-src.outputs.cache-hit != 'true'
+        run: |
+          wget -q --show-progress \
+            https://buildroot.org/downloads/buildroot-${{ env.BUILDROOT_VERSION }}.tar.xz
 
-    - name: Put my stuff
-      run: |
-        cp configs/linux.config buildroot/board/qemu/arm-vexpress/linux.config
-        cp configs/buildroot_defconfig buildroot/.config
-        make -C buildroot/ olddefconfig
+      - name: Extract Buildroot
+        run: |
+          tar -xf buildroot-${{ env.BUILDROOT_VERSION }}.tar.xz
+          mv buildroot-${{ env.BUILDROOT_VERSION }} ${{ env.BUILDROOT_DIR }}
 
-    - name: Compile the Distro
-      run: make -C buildroot/
+      - name: Restore ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.buildroot-ccache
+          key: buildroot-ccache-${{ env.TARGET_BOARD }}-${{ github.sha }}
+          restore-keys: |
+            buildroot-ccache-${{ env.TARGET_BOARD }}-
 
-    - name: Verify Output Files
-      run: |
-        ls -lh buildroot/output/images/
-        echo "--- Host / SDK Tools Mirror ---"
-        ls -lh buildroot/output/host/
+      - name: Restore Buildroot DL cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.buildroot-dl
+          key: buildroot-dl-${{ env.BUILDROOT_VERSION }}-${{ hashFiles('configs/buildroot_defconfig') }}
+          restore-keys: |
+            buildroot-dl-${{ env.BUILDROOT_VERSION }}-
 
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: buildroot-images
-        path: buildroot/output/images/*
-        if-no-files-found: error
+      - name: Apply board config and defconfig
+        run: |
+          cp configs/linux.config \
+            ${{ env.BUILDROOT_DIR }}/board/${{ env.TARGET_BOARD }}/linux.config
+          cp configs/buildroot_defconfig ${{ env.BUILDROOT_DIR }}/.config
+          make -C ${{ env.BUILDROOT_DIR }} olddefconfig
 
-    - name: Upload cross-compiler
-      uses: actions/upload-artifact@v4
-      with:
-        name: buildroot-sdk-host-tools
-        path: buildroot/output/host/*
-        if-no-files-found: error
+      - name: Build distro
+        run: |
+          make -C ${{ env.BUILDROOT_DIR }} \
+            BR2_CCACHE_DIR=~/.buildroot-ccache \
+            BR2_DL_DIR=~/.buildroot-dl \
+            -j$(nproc)
+
+      - name: Verify output
+        run: |
+          echo "=== Images ==="
+          ls -lh ${{ env.BUILDROOT_DIR }}/output/images/
+          echo "=== Host / SDK tools ==="
+          ls -lh ${{ env.BUILDROOT_DIR }}/output/host/
+
+      - name: Upload images
+        uses: actions/upload-artifact@v4
+        with:
+          name: buildroot-images
+          path: ${{ env.BUILDROOT_DIR }}/output/images/*
+          if-no-files-found: error
+
+      - name: Upload SDK / cross-compiler
+        uses: actions/upload-artifact@v4
+        with:
+          name: buildroot-sdk-host-tools
+          path: ${{ env.BUILDROOT_DIR }}/output/host/*
+          if-no-files-found: error
