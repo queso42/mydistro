@@ -1020,7 +1020,7 @@ BR2_PACKAGE_PSPLASH_STARTUP_MSG=y
 # BR2_PACKAGE_SDL is not set
 # BR2_PACKAGE_SDL2 is not set
 # BR2_PACKAGE_SPIRV_HEADERS is not set
-# BR2_PACKAGE_TK is not set
+BR2_PACKAGE_TK=y
 # BR2_PACKAGE_VULKAN_HEADERS is not set
 # BR2_PACKAGE_VULKAN_LOADER is not set
 # BR2_PACKAGE_VULKAN_SDK is not set
@@ -1286,7 +1286,7 @@ BR2_PACKAGE_XDATA_XBITMAPS=y
 #
 # BR2_PACKAGE_ALSAMIXERGUI is not set
 # BR2_PACKAGE_APITRACE is not set
-# BR2_PACKAGE_DILLO is not set
+BR2_PACKAGE_DILLO=y
 # BR2_PACKAGE_DOCKER is not set
 # BR2_PACKAGE_FEH is not set
 # BR2_PACKAGE_MUPDF is not set
@@ -1831,7 +1831,7 @@ BR2_PACKAGE_CAIRO_ZLIB=y
 #
 # exiv2 needs a uClibc or glibc toolchain w/ C++, wchar, dynamic library, threads
 #
-# BR2_PACKAGE_FLTK is not set
+BR2_PACKAGE_FLTK=y
 BR2_PACKAGE_FONTCONFIG=y
 BR2_PACKAGE_FREETYPE=y
 # BR2_PACKAGE_GD is not set
