@@ -7,7 +7,7 @@ on:
 
 env:
   CTNG_VERSION: "1.28.0"
-  TOOLCHAIN_PREFIX: "arm-rpi-linux-gnueabihf"
+  TOOLCHAIN_PREFIX: "arm-versatile-linux-gnueabihf"
 
 jobs:
   toolchain:
@@ -39,7 +39,8 @@ jobs:
       - name: Fetch & build ct-ng
         if: steps.cache-ctng-bin.outputs.cache-hit != 'true'
         run: |
-          wget -q https://crosstool-ng.github.io/download/crosstool-ng-${{ env.CTNG_VERSION }}.tar.xz
+          wget --tries=3 --show-progress \
+      http://crosstool-ng.org/download/crosstool-ng/crosstool-ng-${{ env.CTNG_VERSION }}.tar.xz
           tar xf crosstool-ng-${{ env.CTNG_VERSION }}.tar.xz
           cd crosstool-ng-${{ env.CTNG_VERSION }}
           ./configure --prefix=$HOME/ct-ng-bin
