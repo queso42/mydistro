@@ -67,6 +67,9 @@ jobs:
           $HOME/ct-ng-bin/bin/ct-ng oldconfig
           $HOME/ct-ng-bin/bin/ct-ng build
 
+      - name: Debug x-tools contents
+        run: ls -la ~/x-tools/
+
       - name: Package toolchain
         run: |
           tar -cJf toolchain-${{ env.TOOLCHAIN_PREFIX }}-${{ github.ref_name }}.tar.xz \
