@@ -40,7 +40,7 @@ jobs:
         if: steps.cache-ctng-bin.outputs.cache-hit != 'true'
         run: |
           wget --tries=3 --show-progress \
-      http://crosstool-ng.org/download/crosstool-ng/crosstool-ng-${{ env.CTNG_VERSION }}.tar.xz
+            http://crosstool-ng.org/download/crosstool-ng/crosstool-ng-${{ env.CTNG_VERSION }}.tar.xz
           tar xf crosstool-ng-${{ env.CTNG_VERSION }}.tar.xz
           cd crosstool-ng-${{ env.CTNG_VERSION }}
           ./configure --prefix=$HOME/ct-ng-bin
