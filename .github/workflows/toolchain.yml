@@ -7,7 +7,7 @@ on:
 
 env:
   CTNG_VERSION: "1.28.0"
-  TOOLCHAIN_PREFIX: "arm-versatile-linux-gnueabihf"
+  TOOLCHAIN_PREFIX: "arm-rpi-linux-gnueabihf"
 
 jobs:
   toolchain:
