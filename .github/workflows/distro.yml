@@ -1,0 +1,200 @@
+name: Build Custom Distro
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+    inputs:
+      toolchain_tag:
+        description: "Toolchain release tag to use (e.g. toolchain-v1.0)"
+        required: false
+        default: ""
+
+env:
+  BUILDROOT_VERSION: "2026.05-rc2"
+  BUILDROOT_DIR: "buildroot"
+  TOOLCHAIN_PREFIX: "arm-versatile-linux-gnueabihf"
+
+# ─────────────────────────────────────────────
+# JOB 1 — Distro image (Buildroot)
+# Downloads toolchain from latest release.
+# ─────────────────────────────────────────────
+jobs:
+  build:
+    name: Build Distro Image
+    runs-on: ubuntu-24.04-arm
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Buildroot host deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            build-essential libncurses5-dev libssl-dev \
+            rsync cpio bc wget unzip findutils file \
+            python3 git graphviz
+
+      # Resolve which toolchain tag to use:
+      #   1. workflow_dispatch input (manual override)
+      #   2. latest release tagged toolchain-v*
+      - name: Resolve toolchain tag
+        id: resolve-tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -n "${{ github.event.inputs.toolchain_tag }}" ]; then
+            TAG="${{ github.event.inputs.toolchain_tag }}"
+          else
+            TAG=$(gh release list --repo ${{ github.repository }} \
+              --json tagName,isLatest \
+              --jq '[.[] | select(.tagName | startswith("toolchain-v"))] | first | .tagName')
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Using toolchain: $TAG"
+
+      - name: Download toolchain from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download ${{ steps.resolve-tag.outputs.tag }} \
+            --repo ${{ github.repository }} \
+            --pattern "toolchain-${{ env.TOOLCHAIN_PREFIX }}-*.tar.xz" \
+            --output toolchain.tar.xz
+
+      - name: Extract toolchain
+        run: |
+          mkdir -p ~/x-tools
+          tar -xJf toolchain.tar.xz -C ~/x-tools
+          chmod -R u+x ~/x-tools/${{ env.TOOLCHAIN_PREFIX }}/bin
+          echo "~/x-tools/${{ env.TOOLCHAIN_PREFIX }}/bin" >> $GITHUB_PATH
+
+      - name: Cache Buildroot tarball
+        id: cache-br-tarball
+        uses: actions/cache@v4
+        with:
+          path: buildroot-${{ env.BUILDROOT_VERSION }}.tar.gz
+          key: buildroot-tarball-${{ env.BUILDROOT_VERSION }}
+
+      - name: Fetch Buildroot
+        if: steps.cache-br-tarball.outputs.cache-hit != 'true'
+        run: |
+          wget -q --show-progress \
+            https://buildroot.org/downloads/buildroot-${{ env.BUILDROOT_VERSION }}.tar.gz
+
+      - name: Extract Buildroot
+        run: |
+          tar -xf buildroot-${{ env.BUILDROOT_VERSION }}.tar.gz
+          mv buildroot-${{ env.BUILDROOT_VERSION }} ${{ env.BUILDROOT_DIR }}
+
+      - name: Download cache (source tarballs)
+        uses: actions/cache@v4
+        with:
+          path: ~/.buildroot-dl
+          key: buildroot-dl-${{ env.BUILDROOT_VERSION }}-${{ hashFiles('configs/buildroot_defconfig') }}
+          restore-keys: |
+            buildroot-dl-${{ env.BUILDROOT_VERSION }}-
+
+      - name: ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.buildroot-ccache
+          key: buildroot-ccache-${{ hashFiles('configs/buildroot_defconfig', 'configs/linux.config') }}
+          restore-keys: |
+            buildroot-ccache-
+
+      - name: Apply config
+        run: |
+          cp configs/buildroot_defconfig ${{ env.BUILDROOT_DIR }}/.config
+          cp configs/linux.config ${{ env.BUILDROOT_DIR }}/linux.config
+          cat >> ${{ env.BUILDROOT_DIR }}/.config <<EOF
+          BR2_TOOLCHAIN_EXTERNAL=y
+          BR2_TOOLCHAIN_EXTERNAL_PATH="$HOME/x-tools/${{ env.TOOLCHAIN_PREFIX }}"
+          BR2_TOOLCHAIN_EXTERNAL_PREFIX="${{ env.TOOLCHAIN_PREFIX }}"
+          BR2_TOOLCHAIN_EXTERNAL_CUSTOM_PREFIX="${{ env.TOOLCHAIN_PREFIX }}"
+          BR2_TOOLCHAIN_EXTERNAL_CUSTOM=y
+          EOF
+          make -C ${{ env.BUILDROOT_DIR }} olddefconfig
+
+      - name: Build
+        run: |
+          make -C ${{ env.BUILDROOT_DIR }} \
+            BR2_CCACHE_DIR=~/.buildroot-ccache \
+            BR2_DL_DIR=~/.buildroot-dl \
+            -j$(nproc)
+
+      - name: List images
+        run: ls -lh ${{ env.BUILDROOT_DIR }}/output/images/
+
+      - name: Upload images
+        uses: actions/upload-artifact@v4
+        with:
+          name: distro-images
+          path: ${{ env.BUILDROOT_DIR }}/output/images/*
+          if-no-files-found: error
+
+# ─────────────────────────────────────────────
+# JOB 2 — Boot test (QEMU)
+# Boots the image on raspi0, waits for a shell prompt.
+# ─────────────────────────────────────────────
+  test:
+    name: Boot Test (QEMU)
+    runs-on: ubuntu-24.04-arm
+    needs: build
+
+    steps:
+      - name: Install QEMU
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            qemu-system-arm
+
+      - name: Download images
+        uses: actions/download-artifact@v4
+        with:
+          name: distro-images
+          path: images/
+
+      - name: List images
+        run: ls -lh images/
+
+      - name: Boot and check for prompt
+        timeout-minutes: 5
+        run: |
+          qemu-system-arm \
+            -M raspi0 \
+            -m 512m \
+            -kernel images/kernel.img \
+            -dtb images/bcm2708-rpi-zero.dtb \
+            -drive file=images/sdcard.img,if=sd,format=raw \
+            -append "console=ttyAMA0 root=/dev/mmcblk0p2 rw quiet" \
+            -nographic \
+            -serial stdio \
+            -no-reboot \
+          | tee boot.log &
+
+          QEMU_PID=$!
+
+          for i in $(seq 1 48); do
+            if grep -qE "(login:|#|\$) " boot.log 2>/dev/null; then
+              echo "✓ System booted successfully"
+              kill $QEMU_PID 2>/dev/null
+              exit 0
+            fi
+            sleep 5
+          done
+
+          echo "✗ Timed out waiting for boot prompt"
+          cat boot.log
+          kill $QEMU_PID 2>/dev/null
+          exit 1
+
+      - name: Upload boot log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: boot-log
+          path: boot.log
