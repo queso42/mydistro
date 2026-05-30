@@ -15,7 +15,7 @@ on:
 env:
   BUILDROOT_VERSION: "2026.05-rc2"
   BUILDROOT_DIR: "buildroot"
-  TOOLCHAIN_PREFIX: "arm-versatile-linux-gnueabihf"
+  TOOLCHAIN_PREFIX: "arm-rpi-linux-gnueabihf"
 
 # ─────────────────────────────────────────────
 # JOB 1 — Distro image (Buildroot)
