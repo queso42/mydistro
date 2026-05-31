@@ -6,22 +6,16 @@ on:
   pull_request:
     branches: ["main"]
   workflow_dispatch:
-    inputs:
-      toolchain_tag:
-        description: "Toolchain release tag to use (e.g. toolchain-v1.0)"
-        required: false
-        default: ""
 
 env:
   BUILDROOT_VERSION: "2026.05-rc2"
   BUILDROOT_DIR: "buildroot"
-  TOOLCHAIN_PREFIX: "arm-rpi-linux-gnueabihf"
 
+jobs:
 # ─────────────────────────────────────────────
 # JOB 1 — Distro image (Buildroot)
-# Downloads toolchain from latest release.
+# Internal toolchain — Buildroot handles everything.
 # ─────────────────────────────────────────────
-jobs:
   build:
     name: Build Distro Image
     runs-on: ubuntu-24.04-arm
@@ -37,40 +31,6 @@ jobs:
             build-essential libncurses5-dev libssl-dev \
             rsync cpio bc wget unzip findutils file \
             python3 git graphviz
-
-      # Resolve which toolchain tag to use:
-      #   1. workflow_dispatch input (manual override)
-      #   2. latest release tagged toolchain-v*
-      - name: Resolve toolchain tag
-        id: resolve-tag
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if [ -n "${{ github.event.inputs.toolchain_tag }}" ]; then
-            TAG="${{ github.event.inputs.toolchain_tag }}"
-          else
-            TAG=$(gh release list --repo ${{ github.repository }} \
-              --json tagName,isLatest \
-              --jq '[.[] | select(.tagName | startswith("toolchain-v"))] | first | .tagName')
-          fi
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
-          echo "Using toolchain: $TAG"
-
-      - name: Download toolchain from release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release download ${{ steps.resolve-tag.outputs.tag }} \
-            --repo ${{ github.repository }} \
-            --pattern "toolchain-${{ env.TOOLCHAIN_PREFIX }}-*.tar.xz" \
-            --output toolchain.tar.xz
-
-      - name: Extract toolchain
-        run: |
-          mkdir -p ~/x-tools
-          tar -xJf toolchain.tar.xz -C ~/x-tools
-          chmod -R u+x ~/x-tools/${{ env.TOOLCHAIN_PREFIX }}/bin
-          echo "~/x-tools/${{ env.TOOLCHAIN_PREFIX }}/bin" >> $GITHUB_PATH
 
       - name: Cache Buildroot tarball
         id: cache-br-tarball
@@ -110,13 +70,6 @@ jobs:
         run: |
           cp configs/buildroot_defconfig ${{ env.BUILDROOT_DIR }}/.config
           cp configs/linux.config ${{ env.BUILDROOT_DIR }}/linux.config
-          cat >> ${{ env.BUILDROOT_DIR }}/.config <<EOF
-          BR2_TOOLCHAIN_EXTERNAL=y
-          BR2_TOOLCHAIN_EXTERNAL_PATH="$HOME/x-tools/${{ env.TOOLCHAIN_PREFIX }}"
-          BR2_TOOLCHAIN_EXTERNAL_PREFIX="${{ env.TOOLCHAIN_PREFIX }}"
-          BR2_TOOLCHAIN_EXTERNAL_CUSTOM_PREFIX="${{ env.TOOLCHAIN_PREFIX }}"
-          BR2_TOOLCHAIN_EXTERNAL_CUSTOM=y
-          EOF
           make -C ${{ env.BUILDROOT_DIR }} olddefconfig
 
       - name: Build
