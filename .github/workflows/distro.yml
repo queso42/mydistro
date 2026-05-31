@@ -68,7 +68,7 @@ jobs:
 
       - name: Apply config
         run: |
-          cp configs/buildroot_defconfig ${{ env.BUILDROOT_DIR }}/.config
+          cp configs/br2.config ${{ env.BUILDROOT_DIR }}/.config
           cp configs/linux.config ${{ env.BUILDROOT_DIR }}/linux.config
           make -C ${{ env.BUILDROOT_DIR }} olddefconfig
 
