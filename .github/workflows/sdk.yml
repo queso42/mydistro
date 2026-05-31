@@ -1,0 +1,83 @@
+name: Build SDK
+
+on:
+  workflow_dispatch:
+
+env:
+  BUILDROOT_VERSION: "2026.05-rc2"
+  BUILDROOT_DIR: "buildroot"
+
+jobs:
+# ─────────────────────────────────────────────
+# Builds Buildroot SDK (make sdk) on demand.
+# Reuses the same config as the distro build.
+# ─────────────────────────────────────────────
+  sdk:
+    name: Build SDK
+    runs-on: ubuntu-24.04-arm
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Buildroot host deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            build-essential libncurses5-dev libssl-dev \
+            rsync cpio bc wget unzip findutils file \
+            python3 git graphviz
+
+      - name: Cache Buildroot tarball
+        id: cache-br-tarball
+        uses: actions/cache@v4
+        with:
+          path: buildroot-${{ env.BUILDROOT_VERSION }}.tar.gz
+          key: buildroot-tarball-${{ env.BUILDROOT_VERSION }}
+
+      - name: Fetch Buildroot
+        if: steps.cache-br-tarball.outputs.cache-hit != 'true'
+        run: |
+          wget -q --show-progress \
+            https://buildroot.org/downloads/buildroot-${{ env.BUILDROOT_VERSION }}.tar.gz
+
+      - name: Extract Buildroot
+        run: |
+          tar -xf buildroot-${{ env.BUILDROOT_VERSION }}.tar.gz
+          mv buildroot-${{ env.BUILDROOT_VERSION }} ${{ env.BUILDROOT_DIR }}
+
+      - name: Download cache (source tarballs)
+        uses: actions/cache@v4
+        with:
+          path: ~/.buildroot-dl
+          key: buildroot-dl-${{ env.BUILDROOT_VERSION }}-${{ hashFiles('configs/buildroot_defconfig') }}
+          restore-keys: |
+            buildroot-dl-${{ env.BUILDROOT_VERSION }}-
+
+      - name: ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.buildroot-ccache
+          key: buildroot-ccache-${{ hashFiles('configs/buildroot_defconfig', 'configs/linux.config') }}
+          restore-keys: |
+            buildroot-ccache-
+
+      - name: Apply config
+        run: |
+          cp configs/buildroot_defconfig ${{ env.BUILDROOT_DIR }}/.config
+          cp configs/linux.config ${{ env.BUILDROOT_DIR }}/linux.config
+          make -C ${{ env.BUILDROOT_DIR }} olddefconfig
+
+      - name: Build SDK
+        run: |
+          make -C ${{ env.BUILDROOT_DIR }} \
+            BR2_CCACHE_DIR=~/.buildroot-ccache \
+            BR2_DL_DIR=~/.buildroot-dl \
+            sdk -j$(nproc)
+
+      - name: Upload SDK
+        uses: actions/upload-artifact@v4
+        with:
+          name: buildroot-sdk
+          path: ${{ env.BUILDROOT_DIR }}/output/images/*_sdk-buildroot.tar.gz
+          if-no-files-found: error
