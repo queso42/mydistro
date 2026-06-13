@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 env:
-  BUILDROOT_VERSION: "2026.05-rc2"
+  BUILDROOT_VERSION: "2026.05"
   BUILDROOT_DIR: "buildroot"
 
 jobs:

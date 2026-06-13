@@ -1,19 +1,19 @@
-name: Build SDK
+name: Build Toolchain
 
 on:
   workflow_dispatch:
 
 env:
-  BUILDROOT_VERSION: "2026.05-rc2"
+  BUILDROOT_VERSION: "2026.05"
   BUILDROOT_DIR: "buildroot"
 
 jobs:
 # ─────────────────────────────────────────────
-# Builds Buildroot SDK (make sdk) on demand.
+# Builds Buildroot toolchain (make toolchain) on demand.
 # Reuses the same config as the distro build.
 # ─────────────────────────────────────────────
-  sdk:
-    name: Build SDK
+  toolchain:
+    name: Build Toolchain
     runs-on: ubuntu-24.04-arm
 
     steps:
@@ -64,20 +64,22 @@ jobs:
 
       - name: Apply config
         run: |
+          mkdir -p ${{ env.BUILDROOT_DIR }}/board/custom
           cp configs/br2.config ${{ env.BUILDROOT_DIR }}/.config
-          cp configs/linux.config ${{ env.BUILDROOT_DIR }}/linux.config
+          cp configs/linux.config ${{ env.BUILDROOT_DIR }}/board/custom/linux.config
           make -C ${{ env.BUILDROOT_DIR }} olddefconfig
 
-      - name: Build SDK
+      - name: Build Toolchain
         run: |
           make -C ${{ env.BUILDROOT_DIR }} \
             BR2_CCACHE_DIR=~/.buildroot-ccache \
             BR2_DL_DIR=~/.buildroot-dl \
-            sdk -j$(nproc)
+            toolchain -j$(nproc)
 
-      - name: Upload SDK
+      - name: Upload Toolchain
         uses: actions/upload-artifact@v4
         with:
-          name: buildroot-sdk
-          path: ${{ env.BUILDROOT_DIR }}/output/images/*_sdk-buildroot.tar.gz
+          name: buildroot-toolchain
+          path: ${{ env.BUILDROOT_DIR }}/output/host/*
           if-no-files-found: error
+
