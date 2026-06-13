@@ -70,7 +70,7 @@ jobs:
         run: |
           mkdir -p ${{ env.BUILDROOT_DIR }}/board/custom
           cp configs/br2.config ${{ env.BUILDROOT_DIR }}/.config
-          cp configs/linux.config ${{ env.BUILDROOT_DIR }}/board/qemu-custom/linux.config
+          cp configs/linux.config ${{ env.BUILDROOT_DIR }}/board/custom/linux.config
           make -C ${{ env.BUILDROOT_DIR }} olddefconfig
 
       - name: Build
